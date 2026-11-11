@@ -1,0 +1,33 @@
+name: Mipmap upstream sync
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mipmap-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'mipmap-ai/t3code'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.MIPMAP_UPSTREAM_SYNC_TOKEN || github.token }}
+      - name: Prepare upstream update
+        env:
+          GH_TOKEN: ${{ secrets.MIPMAP_UPSTREAM_SYNC_TOKEN || github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash .github/mipmap/sync-upstream.sh
