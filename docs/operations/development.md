@@ -15,6 +15,56 @@ a new browser.
 
 Prefer a container? See [Dev container](../internals/devcontainer.md) for VS Code and Codespaces setup.
 
+### MicroBay builds (Atlas's Mac)
+
+On Atlas's Mac, keep large build files on the external drive at
+`/Volumes/MicroBay/mipmap/t3code-build`. The drive's root is not writable by this account;
+use the existing `mipmap` directory. Keep MicroBay mounted while using these dependencies.
+If it is unavailable, stop before installing or building instead of using internal storage.
+
+For the existing `t3-9b5fc51b` worktree, the external launcher sets the storage paths and
+changes to that checkout:
+
+```sh
+/Volumes/MicroBay/mipmap/t3code-build/t3-9b5fc51b/run.sh run build:desktop
+```
+
+This builds the web client, server, and Electron bundles. Packaging an installer is a separate
+step: pass `run dist:desktop:dmg` to the same launcher for an unsigned macOS installer.
+The launcher is machine-local and specific to that checkout; do not reuse it for another worktree.
+
+For a new worktree, use Node 24 and configure storage from its repository root before installing:
+
+```sh
+export T3_BUILD_ROOT=/Volumes/MicroBay/mipmap/t3code-build
+export T3_BUILD_WORKTREE="$T3_BUILD_ROOT/$(basename "$PWD")"
+export TMPDIR="$T3_BUILD_ROOT/tmp"
+export XDG_CACHE_HOME="$T3_BUILD_ROOT/xdg-cache"
+export ELECTRON_CACHE="$T3_BUILD_ROOT/electron-cache"
+export ELECTRON_BUILDER_CACHE="$T3_BUILD_ROOT/electron-builder-cache"
+export CARGO_TARGET_DIR="$T3_BUILD_WORKTREE/cargo-target"
+export npm_config_store_dir="$T3_BUILD_ROOT/pnpm-store"
+export npm_config_virtual_store_dir="$T3_BUILD_WORKTREE/virtual-store"
+mkdir -p "$T3_BUILD_WORKTREE" "$TMPDIR" "$XDG_CACHE_HOME" \
+  "$ELECTRON_CACHE" "$ELECTRON_BUILDER_CACHE" "$CARGO_TARGET_DIR"
+pnpm install --frozen-lockfile
+```
+
+Choose a distinct `T3_BUILD_WORKTREE` if another checkout has the same directory name.
+Before building, link `apps/web/dist`, `apps/server/dist`, `apps/desktop/dist-electron`,
+and `release` to separate directories below that worktree's external storage. Redirect
+root and app `.vite-plus` caches there too. Create the external targets before linking.
+If local directories already exist, move their contents first, verify the move, then replace
+them with links. Do not overwrite existing destinations or delete shared caches.
+Directory-only Git ignore patterns may not match these links; use Git's local `info/exclude`
+for any that appear in status, without changing tracked ignore rules.
+
+Keep the storage environment above when running `pnpm exec vp run build:desktop` or packaging.
+The existing pnpm store and metadata cache at `~/Library/pnpm/store` and
+`~/Library/Caches/pnpm` have also been moved to MicroBay with links preserving their paths.
+Leave those links intact. After a relocation, verify output paths resolve onto MicroBay and
+check for redundant internal files. Do not delete unrelated tools or caches to reclaim space.
+
 ## Choosing a dev process
 
 Use `vp run dev` for server and web, or `vp run dev:desktop` for the Electron client.
